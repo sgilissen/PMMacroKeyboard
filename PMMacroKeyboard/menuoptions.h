@@ -1,0 +1,12 @@
+const static char menu_a_1[10] PROGMEM = "Ctrl+1+Alt";
+const static char menu_a_2[10] PROGMEM = "Ctrl+2";
+const static char menu_a_3[10] PROGMEM = "Ctrl+3";
+const static char menu_a_4[10] PROGMEM = "Ctrl+4";
+const char menu_a_5[10] PROGMEM = "Ctrl+5";
+const char menu_a_6[10] PROGMEM = "Ctrl+6";
+const char menu_a_7[10] PROGMEM = "Ctrl+7";
+const char menu_a_8[10] PROGMEM = "Ctrl+8";
+const char menu_a_9[10] PROGMEM = "Ctrl+9";
+const char menu_a_0[10] PROGMEM = "Ctrl+0";
+const char menu_a_10[10] PROGMEM = "Ctrl+*";
+const char menu_a_11[10] PROGMEM = "Ctrl+`";
