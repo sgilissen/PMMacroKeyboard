@@ -527,12 +527,6 @@ void read_func_btns() {
   
 }
 
-void read_enc() {
-  
-  
-}
-
-
 
 void resetMillis() {
   startMillis = currentMillis; // If any button is pressed, reset the millis to turn on the display
