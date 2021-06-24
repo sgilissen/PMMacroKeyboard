@@ -11,12 +11,15 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <U8g2_for_Adafruit_GFX.h> // u8g2 fonts are prettier
-#include <MD_REncoder.h>
+#include <Encoder.h>
+
+#define KEY_KEYPAD_SUBTRACT 0x56
+#define KEY_KEYPAD_ADD 0x57
 
 
 unsigned long startMillis;
 unsigned long currentMillis;
-const unsigned long displayTimeout = 8000;
+const unsigned long displayTimeout = 10000;
 
 /* ---- START KEYMATRIX SETUP ---- */
 const byte ROWS = 4; // 4 rows
@@ -29,20 +32,6 @@ char keys[ROWS][COLS] = {
   {'*', '0', '#', 'D'},
 };
 
-char symbols[2] = {'€', '°'};
-char emoji[50] = {'┬─┬ノ( º _ ºノ)', '(ಠ_ಠ)'};
-
-
-// Faking a lookup table
-const byte PAGES = 4; // 4 pages
-const byte BTTNS = 9;
-
-
-const char* pageNames[] = {"A: Ctrl+(n)", "B: Ctrl+Alt+(n)", "C: Alt+(n)", "D: F13-F24"};
-const char* pageDescr1[] = {"(n): Num, * or #", "(n): Num, * or #", "(n): Num, * or #", "Hidden F-keys"};
-const char* pageDescr2[] = {"JOG: WndwMgmt", "JOG: Workspaces", "JOG: Alt+/-", "JOG: Ctrl+/-"};
-char lastKeypress[8];
-
 byte rowPins[ROWS] = {10, 16, 14, 15}; //{9, 8, 7, 6}; // Pins to connect the rows
 byte colPins[COLS] = {18, 19, 20, 21};//{5, 4, 3, 2}; // Pins to connect the columns
 
@@ -50,6 +39,11 @@ byte colPins[COLS] = {18, 19, 20, 21};//{5, 4, 3, 2}; // Pins to connect the col
 Keypad keyMatrix = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 /* ---- END KEYMATRIX SETUP ---- */
 
+/* ---- START DESCRIPTIONS ---- */
+const char* pageNames[] = {"A: Ctrl+(n)", "B: Ctrl+Alt+(n)", "C: Alt+(n)", "D: F13-F24"};
+const char* pageDescr1[] = {"(n): Num, * or #", "(n): Num, * or #", "(n): Num, * or #", "Hidden F-keys"};
+const char* pageDescr2[] = {"JOG: (n)=PgUp/Dn", "JOG: (Shft)Tab", "JOG: (n)=PgUp/Dn", "JOG: Workspaces"};
+/* ---- END DESCRIPTIONS ---- */
 
 /* ---- START OLED SETUP ---- */
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
@@ -60,12 +54,17 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 U8G2_FOR_ADAFRUIT_GFX u8g2_display;
 /* ---- END OLED SETUP ---- */
 
-MD_REncoder rotary = MD_REncoder(6, 7);
+/* ---- START ROTARY ENCODER SETUP ---- */
+Encoder RotEnc(6,7);
+long posRotEnc  = -999;
+/* ---- END ROTARY ENCODER SETUP ---- */
 
 enum State_enum {PAGE_A, PAGE_B, PAGE_C, PAGE_D};
+
 void state_machine_run(uint8_t states);
 uint8_t state = PAGE_A;
 char button = keyMatrix.getKey();
+
 
 void setup() {
   Serial.begin(9600);
@@ -75,17 +74,15 @@ void setup() {
     for (;;); // Don't proceed, loop forever
   }
 
-  rotary.begin();
-
-  // Show initial display buffer contents on the screen --
-  // the library initializes this with an Adafruit splash screen.
+  // Clear the display, initiate u8g2 fonts
   display.clearDisplay();
   u8g2_display.begin(display);
-  Keyboard.begin();
-  display.clearDisplay();
   display.setCursor(10, 0);
   write_display();
 
+  // Initiate Keyboard library
+  Keyboard.begin();
+  
 
 }
 
@@ -94,7 +91,6 @@ void loop() {
   button = keyMatrix.getKey();
   read_func_btns();
   state_machine_run(button);
-
 
   // Display timeout (we don't want to burn out our OLED display)
   currentMillis = millis();
@@ -109,10 +105,28 @@ void loop() {
 
 void state_machine_run(char button)
 {
-  uint8_t rotary_result = rotary.read();
+  long newPosRotEnc = RotEnc.read()/4;
+  
   switch (state)
   {
     case PAGE_A:
+      if (newPosRotEnc != posRotEnc && newPosRotEnc > posRotEnc) {
+        posRotEnc = newPosRotEnc;
+        Keyboard.press(KEY_LEFT_CTRL);
+        Keyboard.press(KEY_PAGE_UP);
+        delay(20);
+        Keyboard.releaseAll();
+        resetMillis();
+        } 
+      if (newPosRotEnc != posRotEnc && newPosRotEnc < posRotEnc) {
+        posRotEnc = newPosRotEnc;
+        Keyboard.press(KEY_LEFT_CTRL);
+        Keyboard.press(KEY_PAGE_DOWN);
+        delay(20);
+        Keyboard.releaseAll();
+        resetMillis();
+        } 
+      
       if (button) {
         //Serial.println(button);
         if (button == '1') {
@@ -194,27 +208,27 @@ void state_machine_run(char button)
         } 
         
       }
-      Serial.println(rotary_result);
-
-        if (rotary_result) {
-          if(rotary_result == DIR_CW) {
-            Keyboard.press(KEY_LEFT_CTRL);
-            Keyboard.press(KEY_LEFT_ALT);
-            Keyboard.press(KEY_UP_ARROW);
-            delay(20);
-            Keyboard.releaseAll();
-          } else if(rotary_result == DIR_CCW) {
-            Keyboard.press(KEY_LEFT_CTRL);
-            Keyboard.press(KEY_LEFT_ALT);
-            Keyboard.press(KEY_DOWN_ARROW);
-            delay(20);
-            Keyboard.releaseAll();
-          }
-        }
+      
 
       break;
 
     case PAGE_B:
+      if (newPosRotEnc != posRotEnc && newPosRotEnc > posRotEnc) {
+        posRotEnc = newPosRotEnc;
+        Keyboard.press(KEY_TAB);
+        delay(20);
+        Keyboard.releaseAll();
+        resetMillis();
+        } 
+      if (newPosRotEnc != posRotEnc && newPosRotEnc < posRotEnc) {
+        posRotEnc = newPosRotEnc;
+        Keyboard.press(KEY_LEFT_SHIFT);
+        Keyboard.press(KEY_TAB);
+        delay(20);
+        Keyboard.releaseAll();
+        resetMillis();
+        } 
+        
       if (button) {
         if (button == '1') {
           Keyboard.press(KEY_LEFT_CTRL);
@@ -306,6 +320,23 @@ void state_machine_run(char button)
       break;
     
     case PAGE_C:
+      if (newPosRotEnc != posRotEnc && newPosRotEnc > posRotEnc) {
+        posRotEnc = newPosRotEnc;
+        Keyboard.press(KEY_LEFT_ALT);
+        Keyboard.press(KEY_PAGE_UP);
+        delay(20);
+        Keyboard.releaseAll();
+        resetMillis();
+        } 
+      if (newPosRotEnc != posRotEnc && newPosRotEnc < posRotEnc) {
+        posRotEnc = newPosRotEnc;
+        Keyboard.press(KEY_LEFT_ALT);
+        Keyboard.press(KEY_PAGE_DOWN);
+        delay(20);
+        Keyboard.releaseAll();
+        resetMillis();
+        } 
+        
       if (button) {
         if (button == '1') {
           Keyboard.press(KEY_LEFT_ALT);
@@ -387,6 +418,25 @@ void state_machine_run(char button)
       }
       break;
       case PAGE_D:
+      if (newPosRotEnc != posRotEnc && newPosRotEnc > posRotEnc) {
+        posRotEnc = newPosRotEnc;
+        Keyboard.press(KEY_LEFT_CTRL);
+        Keyboard.press(KEY_LEFT_ALT);
+        Keyboard.press(KEY_RIGHT_ARROW);
+        delay(20);
+        Keyboard.releaseAll();
+        resetMillis();
+        } 
+      if (newPosRotEnc != posRotEnc && newPosRotEnc < posRotEnc) {
+        posRotEnc = newPosRotEnc;
+        Keyboard.press(KEY_LEFT_CTRL);
+        Keyboard.press(KEY_LEFT_ALT);
+        Keyboard.press(KEY_LEFT_ARROW);
+        delay(20);
+        Keyboard.releaseAll();
+        resetMillis();
+        } 
+        
       if (button) {
         if (button == '1') {
           Keyboard.press(KEY_F13);
@@ -458,6 +508,7 @@ void state_machine_run(char button)
 
 void read_func_btns() {
   //char button = keyMatrix.getKey();
+  
   if (button == 'A') {
     state = PAGE_A;
   } else if (button == 'B') {
@@ -467,9 +518,24 @@ void read_func_btns() {
   } else if (button == 'D') {
     state = PAGE_D;
   }
+
+  
   if (button) {
-    startMillis = currentMillis; // If any button is pressed, reset the millis to turn on the display
+    //startMillis = currentMillis; // If any button is pressed, reset the millis to turn on the display
+    resetMillis();
   }
+  
+}
+
+void read_enc() {
+  
+  
+}
+
+
+
+void resetMillis() {
+  startMillis = currentMillis; // If any button is pressed, reset the millis to turn on the display
 }
 
 void write_display() {
@@ -498,7 +564,7 @@ void write_display() {
   u8g2_display.setBackgroundColor(BLACK);
   u8g2_display.setCursor(0, 48);
   u8g2_display.print(pageDescr1[state]);
-  u8g2_display.setCursor(0, 58);
+  u8g2_display.setCursor(0, 60);
   u8g2_display.print(pageDescr2[state]);
   display.display();
 }
